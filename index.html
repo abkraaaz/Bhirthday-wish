@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Happy Birthday </title>
+    <title>Happy Birthday</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body {
@@ -43,6 +43,7 @@
             border-radius: 20px;
             box-shadow: 0px 5px 15px rgba(0,0,0,0.4);
             transition: 0.4s;
+            cursor: pointer;
         }
 
         .gallery img:hover {
@@ -63,6 +64,17 @@
             font-size: 18px;
             background: rgba(0,0,0,0.2);
         }
+
+        /* Canvas overlay for sparkles */
+        #sparkle-canvas {
+            position: fixed;
+            left: 0;
+            top: 0;
+            pointer-events: none;
+            width: 100%;
+            height: 100%;
+            z-index: 9999;
+        }
     </style>
 </head>
 <body>
@@ -74,46 +86,175 @@
     <h2>Countdown to 14 February 2026 ❤️</h2>
 
     <div class="message">
-        You are the most beautiful part of my life.  
-        Every second with you is special.  
+        You are the most beautiful part of my life.
+        Every second with you is special.
         I can't wait to celebrate this Valentine's Day together 💕
     </div>
 
-    <div class="gallery">
-        <img src="https://source.unsplash.com/400x400/?birthday,cake">
-        <img src="https://source.unsplash.com/400x400/?love,couple">
-        <img src="https://source.unsplash.com/400x400/?roses">
-        <img src="https://source.unsplash.com/400x400/?romantic,lights">
-        <img src="https://source.unsplash.com/400x400/?heart,background">
-        <img src="https://source.unsplash.com/400x400/?valentine">
+    <div class="gallery" id="gallery">
+        <img src="https://source.unsplash.com/400x400/?birthday,cake" alt="img1">
+        <img src="https://source.unsplash.com/400x400/?love,couple" alt="img2">
+        <img src="https://source.unsplash.com/400x400/?roses" alt="img3">
+        <img src="https://source.unsplash.com/400x400/?romantic,lights" alt="img4">
+        <img src="https://source.unsplash.com/400x400/?heart,background" alt="img5">
+        <img src="https://source.unsplash.com/400x400/?valentine" alt="img6">
     </div>
 
     <footer>
         Made with ❤️ just for you
     </footer>
 
+    <!-- Canvas for sparkle effects -->
+    <canvas id="sparkle-canvas"></canvas>
+
 <script>
+    // Countdown (unchanged)
     var countDownDate = new Date("Feb 14, 2026 00:00:00").getTime();
-
     var x = setInterval(function() {
-
         var now = new Date().getTime();
         var distance = countDownDate - now;
-
         var days = Math.floor(distance / (1000 * 60 * 60 * 24));
         var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
         var seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
         document.getElementById("countdown").innerHTML =
-            days + "d " + hours + "h "
-            + minutes + "m " + seconds + "s ";
+            days + "d " + hours + "h " + minutes + "m " + seconds + "s ";
 
         if (distance < 0) {
             clearInterval(x);
             document.getElementById("countdown").innerHTML = "❤️ It's Valentine's Day ❤️";
         }
     }, 1000);
+</script>
+
+<script>
+/*
+  Simple sparkle particle system using the full-window canvas.
+  - spawnSparkles(x,y,count,options) creates short-lived particles
+  - Hover on gallery images triggers small burst at mouse pos
+  - Scrolling near bottom triggers a larger celebration burst (infinite-scroll)
+*/
+
+(function() {
+    const canvas = document.getElementById('sparkle-canvas');
+    const ctx = canvas.getContext('2d');
+    let w = canvas.width = window.innerWidth;
+    let h = canvas.height = window.innerHeight;
+    let particles = [];
+
+    function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+
+    function rand(min, max) { return Math.random() * (max - min) + min; }
+
+    function spawnSparkles(x, y, count = 20, opts = {}) {
+        const colors = opts.colors || ['#fff1a8','#ffd166','#ff9f9f','#c1ffd7','#cbe7ff'];
+        for (let i = 0; i < count; i++) {
+            particles.push({
+                x: x + rand(-10,10),
+                y: y + rand(-10,10),
+                vx: rand(-4, 4) * (opts.spreadX || 1.0),
+                vy: rand(-5, -1) * (opts.spreadY || 1.0),
+                life: rand(60, 120),
+                age: 0,
+                size: rand(2,6),
+                color: colors[Math.floor(Math.random()*colors.length)],
+                gravity: opts.gravity || 0.08,
+                rotate: rand(0, Math.PI*2),
+                angularSpeed: rand(-0.1, 0.1),
+                fade: opts.fade !== undefined ? opts.fade : true
+            });
+        }
+    }
+
+    function update() {
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.age++;
+            p.vy += p.gravity;
+            p.x += p.vx;
+            p.y += p.vy;
+            p.rotate += p.angularSpeed;
+            if (p.age >= p.life) particles.splice(i, 1);
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0,0,w,h);
+        for (const p of particles) {
+            const t = p.age / p.life;
+            const alpha = p.fade ? (1 - t) : 1;
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rotate);
+            ctx.fillStyle = p.color;
+            // draw a small star/rotated rectangle for sparkle
+            ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size);
+            ctx.restore();
+        }
+    }
+
+    function loop() {
+        update();
+        draw();
+        requestAnimationFrame(loop);
+    }
+    loop();
+
+    // Hover bursts on gallery images
+    const gallery = document.getElementById('gallery');
+    gallery.addEventListener('mouseover', function(e) {
+        const img = e.target.closest('img');
+        if (!img) return;
+        // compute center of hovered image
+        const rect = img.getBoundingClientRect();
+        const cx = rect.left + rect.width/2;
+        const cy = rect.top + rect.height/2;
+        spawnSparkles(cx, cy, 24, { spreadX: 1.4, spreadY: 1.2, gravity: 0.06 });
+    });
+
+    // Infinite-scroll trigger: when near bottom, emit a larger sparkle burst (once per arrival)
+    let firedScrollCelebrate = false;
+    function onScroll() {
+        const scrollBottom = window.innerHeight + window.scrollY;
+        const docHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+        const threshold = docHeight - 120; // 120px from bottom
+        if (scrollBottom >= threshold && !firedScrollCelebrate) {
+            firedScrollCelebrate = true;
+            // spawn multiple bursts across middle area
+            for (let i = 0; i < 6; i++) {
+                const x = rand(w * 0.15, w * 0.85);
+                const y = rand(h * 0.25, h * 0.6);
+                spawnSparkles(x, y, Math.floor(rand(20,40)), { spreadX: 1.6, spreadY: 1.2, gravity: 0.04 });
+            }
+            // small confetti-like long-lived particles
+            spawnSparkles(w/2, h/2, 80, { spreadX: 1.8, spreadY: 1.0, gravity: 0.02, fade: true });
+        } else if (scrollBottom < threshold - 200) {
+            // reset if user scrolls back up sufficiently
+            firedScrollCelebrate = false;
+        }
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    // Optional: also trigger a celebration when the countdown reaches zero
+    function celebrateNow() {
+        for (let i = 0; i < 12; i++) {
+            const x = rand(w * 0.1, w * 0.9);
+            const y = rand(h * 0.1, h * 0.6);
+            spawnSparkles(x, y, Math.floor(rand(30,60)), { spreadX: 1.8, spreadY: 1.1, gravity: 0.03 });
+        }
+    }
+
+    // Expose for debugging or manual triggers
+    window._spawnSparkles = spawnSparkles;
+    window._celebrateNow = celebrateNow;
+
+})();
 </script>
 
 </body>
